@@ -1,0 +1,13 @@
+# Javascript
+
+node_modules/
+yarn-error.log*
+yarn-debug.log*
+.env.local
+.DS_Store
+.env
+Desktop.ini
+Thumbs.db
+.next/
+dist/
+.parcel-cache/

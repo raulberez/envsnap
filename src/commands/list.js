@@ -1,37 +1,40 @@
-const { listSnapshots, formatList } = require('../list');
+import { listSnapshots, formatList } from '../list.js';
 
-function registerListCommand(program) {
+/**
+ * Registers the `list` command with the CLI program.
+ * @param {import('commander').Command} program
+ * @param {{ listSnapshots?: Function, formatList?: Function }} [deps] - injectable deps for testing
+ */
+export function registerListCommand(
+  program,
+  deps = {}
+) {
+  const _listSnapshots = deps.listSnapshots ?? listSnapshots;
+  const _formatList = deps.formatList ?? formatList;
+
   program
     .command('list')
-    .alias('ls')
-    .description('List all snapshots for a project')
-    .argument('[project]', 'project name', process.env.ENVSNAP_PROJECT || 'default')
-    .option('--json', 'output raw JSON')
-    .option('--tag <tag>', 'filter snapshots by tag')
-    .action((project, options) => {
-      let snapshots = listSnapshots(project);
+    .description('List all saved environment snapshots')
+    .option('--json', 'Output as JSON', false)
+    .option('-p, --project <name>', 'Filter snapshots by project name')
+    .action(async (options) => {
+      try {
+        const snapshots = await _listSnapshots({ project: options.project });
 
-      if (options.tag) {
-        snapshots = snapshots.filter((s) => s.tags.includes(options.tag));
+        if (snapshots.length === 0) {
+          console.log('No snapshots found.');
+          return;
+        }
+
+        if (options.json) {
+          console.log(JSON.stringify(snapshots, null, 2));
+        } else {
+          const formatted = _formatList(snapshots);
+          console.log(formatted);
+        }
+      } catch (err) {
+        console.error(`Error listing snapshots: ${err.message}`);
+        process.exit(1);
       }
-
-      if (options.json) {
-        console.log(JSON.stringify(snapshots, null, 2));
-        return;
-      }
-
-      if (snapshots.length === 0) {
-        console.log(
-          options.tag
-            ? `No snapshots found for project "${project}" with tag "${options.tag}".`
-            : `No snapshots found for project "${project}".`
-        );
-        return;
-      }
-
-      console.log(`Snapshots for project: ${project}\n`);
-      console.log(formatList(snapshots));
     });
 }
-
-module.exports = { registerListCommand };

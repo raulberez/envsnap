@@ -76,4 +76,12 @@ function formatComparisonTable(result) {
   return lines.join('\n');
 }
 
-module.exports = { loadSnapshotMap, compareMultiple, formatComparisonTable };
+/**
+ * Return only the rows that have conflicts or are missing in at least one snapshot.
+ * Useful for a quick summary of differences without the noise of matching keys.
+ */
+function getDiffRows(result) {
+  return result.rows.filter(row => row.hasConflict || row.missingIn.length > 0);
+}
+
+module.exports = { loadSnapshotMap, compareMultiple, formatComparisonTable, getDiffRows };

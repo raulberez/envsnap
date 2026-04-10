@@ -14,7 +14,14 @@ function loadSnapshot(snapshotName) {
   }
 
   const raw = fs.readFileSync(snapshotPath, 'utf8');
-  const snapshot = JSON.parse(raw);
+
+  let snapshot;
+  try {
+    snapshot = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`Snapshot "${snapshotName}" contains invalid JSON: ${err.message}`);
+  }
+
   return snapshot.env || {};
 }
 

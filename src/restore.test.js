@@ -23,6 +23,11 @@ describe('formatEnvFile', () => {
     const result = formatEnvFile({ FOO: 'bar' });
     expect(result.endsWith('\n')).toBe(true);
   });
+
+  it('returns just a newline for empty object', () => {
+    const result = formatEnvFile({});
+    expect(result).toBe('\n');
+  });
 });
 
 describe('loadSnapshot', () => {
@@ -49,6 +54,12 @@ describe('loadSnapshot', () => {
     fs.readFileSync.mockReturnValue(JSON.stringify({ name: 'empty' }));
     const result = loadSnapshot('empty');
     expect(result).toEqual({});
+  });
+
+  it('throws if snapshot file contains invalid JSON', () => {
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue('not valid json {{{');
+    expect(() => loadSnapshot('bad')).toThrow();
   });
 });
 

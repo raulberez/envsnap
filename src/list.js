@@ -4,6 +4,8 @@ const { getSnapshotsDir } = require('./snapshot');
 
 /**
  * Returns an array of snapshot metadata objects sorted by creation time (newest first).
+ * @param {string} projectName - The project name used to locate the snapshots directory.
+ * @returns {Array<{name: string, file: string, createdAt: string, varCount: number, tags: string[]}>}
  */
 function listSnapshots(projectName) {
   const dir = getSnapshotsDir(projectName);
@@ -41,6 +43,8 @@ function listSnapshots(projectName) {
 
 /**
  * Formats the snapshot list as a human-readable string.
+ * @param {Array} snapshots - Array of snapshot metadata objects.
+ * @returns {string}
  */
 function formatList(snapshots) {
   if (snapshots.length === 0) {
@@ -56,4 +60,18 @@ function formatList(snapshots) {
   return lines.join('\n');
 }
 
-module.exports = { listSnapshots, formatList };
+/**
+ * Filters snapshots by one or more tags. Returns only snapshots that contain
+ * every tag in the provided list (AND logic).
+ * @param {Array} snapshots - Array of snapshot metadata objects.
+ * @param {string[]} tags - Tags that each returned snapshot must include.
+ * @returns {Array}
+ */
+function filterByTags(snapshots, tags) {
+  if (!tags || tags.length === 0) {
+    return snapshots;
+  }
+  return snapshots.filter((s) => tags.every((tag) => s.tags.includes(tag)));
+}
+
+module.exports = { listSnapshots, formatList, filterByTags };

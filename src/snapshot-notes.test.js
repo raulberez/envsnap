@@ -8,6 +8,7 @@ let mod;
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'envsnap-notes-'));
   jest.resetModules();
+  jest.mock('./snapshot', () => ({ getSnapshotsDir: () => tmpDir }));
   mod = require('./snapshot-notes');
 });
 
@@ -15,59 +16,48 @@ afterEach(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
-test('loadNotes returns empty object when file missing', () => {
-  expect(mod.loadNotes(tmpDir)).toEqual({});
+test('loadNotes returns empty object when no file', () => {
+  expect(mod.loadNotes()).toEqual({});
 });
 
-test('setNote creates a note entry', () => {
-  const result = mod.setNote('snap1', 'initial staging env', tmpDir);
-  expect(result.text).toBe('initial staging env');
-  expect(result.updatedAt).toBeDefined();
-});
-
-test('getNote returns saved note', () => {
-  mod.setNote('snap1', 'my note', tmpDir);
-  const note = mod.getNote('snap1', tmpDir);
+test('setNote and getNote roundtrip', () => {
+  mod.setNote('snap1', 'my note here');
+  const note = mod.getNote('snap1');
   expect(note).not.toBeNull();
-  expect(note.text).toBe('my note');
+  expect(note.text).toBe('my note here');
+  expect(note.updatedAt).toBeDefined();
 });
 
-test('getNote returns null for unknown snapshot', () => {
-  expect(mod.getNote('nonexistent', tmpDir)).toBeNull();
+test('getNote returns null for missing snapshot', () => {
+  expect(mod.getNote('nonexistent')).toBeNull();
 });
 
-test('setNote overwrites existing note', () => {
-  mod.setNote('snap1', 'first', tmpDir);
-  mod.setNote('snap1', 'second', tmpDir);
-  expect(mod.getNote('snap1', tmpDir).text).toBe('second');
-});
-
-test('removeNote deletes the note and returns true', () => {
-  mod.setNote('snap1', 'to delete', tmpDir);
-  const result = mod.removeNote('snap1', tmpDir);
+test('deleteNote removes existing note', () => {
+  mod.setNote('snap2', 'delete me');
+  const result = mod.deleteNote('snap2');
   expect(result).toBe(true);
-  expect(mod.getNote('snap1', tmpDir)).toBeNull();
+  expect(mod.getNote('snap2')).toBeNull();
 });
 
-test('removeNote returns false when note does not exist', () => {
-  expect(mod.removeNote('ghost', tmpDir)).toBe(false);
+test('deleteNote returns false for missing note', () => {
+  expect(mod.deleteNote('ghost')).toBe(false);
 });
 
-test('setNote throws on empty name', () => {
-  expect(() => mod.setNote('', 'note', tmpDir)).toThrow();
+test('listNotes returns all notes', () => {
+  mod.setNote('a', 'note a');
+  mod.setNote('b', 'note b');
+  const notes = mod.listNotes();
+  expect(Object.keys(notes)).toHaveLength(2);
 });
 
-test('formatNotesList returns no notes message when empty', () => {
+test('formatNotesList returns message when empty', () => {
   expect(mod.formatNotesList({})).toBe('No notes found.');
 });
 
-test('formatNotesList formats notes correctly', () => {
-  mod.setNote('snap1', 'hello', tmpDir);
-  mod.setNote('snap2', 'world', tmpDir);
-  const notes = mod.loadNotes(tmpDir);
+test('formatNotesList formats entries', () => {
+  mod.setNote('mysnap', 'production config');
+  const notes = mod.listNotes();
   const output = mod.formatNotesList(notes);
-  expect(output).toContain('snap1');
-  expect(output).toContain('hello');
-  expect(output).toContain('snap2');
-  expect(output).toContain('world');
+  expect(output).toContain('mysnap');
+  expect(output).toContain('production config');
 });

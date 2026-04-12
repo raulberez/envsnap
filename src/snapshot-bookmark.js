@@ -2,12 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const { getSnapshotsDir } = require('./snapshot');
 
-function getBookmarksFile() {
-  return path.join(getSnapshotsDir(), 'bookmarks.json');
+function getBookmarksFile(dir) {
+  return path.join(dir || getSnapshotsDir(), '.bookmarks.json');
 }
 
-function loadBookmarks() {
-  const file = getBookmarksFile();
+function loadBookmarks(dir) {
+  const file = getBookmarksFile(dir);
   if (!fs.existsSync(file)) return {};
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -16,48 +16,40 @@ function loadBookmarks() {
   }
 }
 
-function saveBookmarks(bookmarks) {
-  const file = getBookmarksFile();
-  fs.mkdirSync(path.dirname(file), { recursive: true });
+function saveBookmarks(bookmarks, dir) {
+  const file = getBookmarksFile(dir);
   fs.writeFileSync(file, JSON.stringify(bookmarks, null, 2));
 }
 
-function addBookmark(snapshotName, label) {
-  const bookmarks = loadBookmarks();
-  if (!bookmarks[snapshotName]) bookmarks[snapshotName] = [];
-  if (!bookmarks[snapshotName].includes(label)) {
-    bookmarks[snapshotName].push(label);
-  }
-  saveBookmarks(bookmarks);
-  return bookmarks[snapshotName];
+function addBookmark(name, label, dir) {
+  const bookmarks = loadBookmarks(dir);
+  bookmarks[name] = { label: label || name, createdAt: new Date().toISOString() };
+  saveBookmarks(bookmarks, dir);
+  return bookmarks[name];
 }
 
-function removeBookmark(snapshotName, label) {
-  const bookmarks = loadBookmarks();
-  if (!bookmarks[snapshotName]) return [];
-  bookmarks[snapshotName] = bookmarks[snapshotName].filter(l => l !== label);
-  if (bookmarks[snapshotName].length === 0) delete bookmarks[snapshotName];
-  saveBookmarks(bookmarks);
-  return bookmarks[snapshotName] || [];
+function removeBookmark(name, dir) {
+  const bookmarks = loadBookmarks(dir);
+  if (!bookmarks[name]) return false;
+  delete bookmarks[name];
+  saveBookmarks(bookmarks, dir);
+  return true;
 }
 
-function getBookmarks(snapshotName) {
-  const bookmarks = loadBookmarks();
-  return bookmarks[snapshotName] || [];
+function getBookmark(name, dir) {
+  const bookmarks = loadBookmarks(dir);
+  return bookmarks[name] || null;
 }
 
-function findByBookmark(label) {
-  const bookmarks = loadBookmarks();
-  return Object.entries(bookmarks)
-    .filter(([, labels]) => labels.includes(label))
-    .map(([name]) => name);
+function listBookmarks(dir) {
+  return loadBookmarks(dir);
 }
 
 function formatBookmarks(bookmarks) {
   const entries = Object.entries(bookmarks);
   if (entries.length === 0) return 'No bookmarks found.';
   return entries
-    .map(([name, labels]) => `  ${name}: ${labels.join(', ')}`)
+    .map(([name, info]) => `  ${name} — "${info.label}" (${info.createdAt})`)
     .join('\n');
 }
 
@@ -67,7 +59,7 @@ module.exports = {
   saveBookmarks,
   addBookmark,
   removeBookmark,
-  getBookmarks,
-  findByBookmark,
+  getBookmark,
+  listBookmarks,
   formatBookmarks,
 };

@@ -1,80 +1,86 @@
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
+const os = require('os');
+const {
+  getBookmarksFile,
+  addBookmark,
+  removeBookmark,
+  getBookmark,
+  listBookmarks,
+  formatBookmarks,
+} = require('./snapshot-bookmark');
 
-let tmpDir;
-
-beforeEach(() => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'envsnap-bookmark-'));
-  jest.resetModules();
-  jest.doMock('./snapshot', () => ({ getSnapshotsDir: () => tmpDir }));
-});
-
-afterEach(() => {
-  fs.rmSync(tmpDir, { recursive: true, force: true });
-  jest.resetModules();
-});
-
-function getModule() {
-  return require('./snapshot-bookmark');
+function getModule(dir) {
+  return {
+    getBookmarksFile: () => getBookmarksFile(dir),
+    addBookmark: (name, label) => addBookmark(name, label, dir),
+    removeBookmark: (name) => removeBookmark(name, dir),
+    getBookmark: (name) => getBookmark(name, dir),
+    listBookmarks: () => listBookmarks(dir),
+  };
 }
 
-test('loadBookmarks returns empty object when no file', () => {
-  const { loadBookmarks } = getModule();
-  expect(loadBookmarks()).toEqual({});
+let tmpDir;
+beforeEach(() => {
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'envsnap-bm-'));
+});
+afterEach(() => {
+  fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
-test('addBookmark creates and stores a label', () => {
-  const { addBookmark, getBookmarks } = getModule();
-  addBookmark('snap1', 'important');
-  expect(getBookmarks('snap1')).toEqual(['important']);
+test('addBookmark stores a bookmark', () => {
+  const m = getModule(tmpDir);
+  const bm = m.addBookmark('snap1', 'My Snap');
+  expect(bm.label).toBe('My Snap');
+  expect(bm.createdAt).toBeDefined();
 });
 
-test('addBookmark does not duplicate labels', () => {
-  const { addBookmark, getBookmarks } = getModule();
-  addBookmark('snap1', 'important');
-  addBookmark('snap1', 'important');
-  expect(getBookmarks('snap1')).toEqual(['important']);
+test('addBookmark uses name as label if none given', () => {
+  const m = getModule(tmpDir);
+  const bm = m.addBookmark('snap2');
+  expect(bm.label).toBe('snap2');
 });
 
-test('addBookmark supports multiple labels per snapshot', () => {
-  const { addBookmark, getBookmarks } = getModule();
-  addBookmark('snap1', 'alpha');
-  addBookmark('snap1', 'beta');
-  expect(getBookmarks('snap1')).toEqual(['alpha', 'beta']);
+test('getBookmark retrieves existing bookmark', () => {
+  const m = getModule(tmpDir);
+  m.addBookmark('snap3', 'Test');
+  const bm = m.getBookmark('snap3');
+  expect(bm).not.toBeNull();
+  expect(bm.label).toBe('Test');
 });
 
-test('removeBookmark removes a label', () => {
-  const { addBookmark, removeBookmark, getBookmarks } = getModule();
-  addBookmark('snap1', 'alpha');
-  addBookmark('snap1', 'beta');
-  removeBookmark('snap1', 'alpha');
-  expect(getBookmarks('snap1')).toEqual(['beta']);
+test('getBookmark returns null for missing bookmark', () => {
+  const m = getModule(tmpDir);
+  expect(m.getBookmark('nope')).toBeNull();
 });
 
-test('removeBookmark cleans up empty entries', () => {
-  const { addBookmark, removeBookmark, loadBookmarks } = getModule();
-  addBookmark('snap1', 'only');
-  removeBookmark('snap1', 'only');
-  expect(loadBookmarks()).toEqual({});
+test('removeBookmark deletes a bookmark', () => {
+  const m = getModule(tmpDir);
+  m.addBookmark('snap4', 'Del');
+  expect(m.removeBookmark('snap4')).toBe(true);
+  expect(m.getBookmark('snap4')).toBeNull();
 });
 
-test('findByBookmark returns snapshots with given label', () => {
-  const { addBookmark, findByBookmark } = getModule();
-  addBookmark('snap1', 'prod');
-  addBookmark('snap2', 'prod');
-  addBookmark('snap3', 'dev');
-  expect(findByBookmark('prod').sort()).toEqual(['snap1', 'snap2']);
+test('removeBookmark returns false for missing', () => {
+  const m = getModule(tmpDir);
+  expect(m.removeBookmark('ghost')).toBe(false);
+});
+
+test('listBookmarks returns all bookmarks', () => {
+  const m = getModule(tmpDir);
+  m.addBookmark('a', 'A');
+  m.addBookmark('b', 'B');
+  const all = m.listBookmarks();
+  expect(Object.keys(all)).toHaveLength(2);
 });
 
 test('formatBookmarks returns message when empty', () => {
-  const { formatBookmarks } = getModule();
   expect(formatBookmarks({})).toBe('No bookmarks found.');
 });
 
-test('formatBookmarks lists all entries', () => {
-  const { formatBookmarks } = getModule();
-  const result = formatBookmarks({ snap1: ['prod', 'stable'], snap2: ['dev'] });
-  expect(result).toContain('snap1: prod, stable');
-  expect(result).toContain('snap2: dev');
+test('formatBookmarks lists bookmarks', () => {
+  const bms = { snap1: { label: 'Hello', createdAt: '2024-01-01T00:00:00.000Z' } };
+  const out = formatBookmarks(bms);
+  expect(out).toContain('snap1');
+  expect(out).toContain('Hello');
 });

@@ -28,6 +28,13 @@ test('appendAuditEntry writes a JSON line and returns the entry', () => {
   expect(raw).toContain('save');
 });
 
+test('appendAuditEntry timestamp is a valid ISO date string', () => {
+  const entry = appendAuditEntry({ action: 'save', snapshotName: 'dev' }, tmpDir);
+  const parsed = new Date(entry.timestamp);
+  expect(parsed.toString()).not.toBe('Invalid Date');
+  expect(entry.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+});
+
 test('loadAuditLog returns all written entries', () => {
   appendAuditEntry({ action: 'save', snapshotName: 'dev' }, tmpDir);
   appendAuditEntry({ action: 'restore', snapshotName: 'prod' }, tmpDir);

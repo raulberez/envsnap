@@ -54,6 +54,30 @@ function formatRating(name, entry) {
   return `${name}: ${stars} (${entry.score}/5) — ${entry.updatedAt}`;
 }
 
+/**
+ * Returns a summary of all ratings: total count, average score,
+ * and the highest/lowest rated snapshot names.
+ */
+function getRatingsSummary(snapshotsDir) {
+  const ratings = loadRatings(snapshotsDir);
+  const entries = Object.entries(ratings);
+  if (entries.length === 0) return { count: 0, average: null, highest: null, lowest: null };
+
+  let sum = 0, highest = entries[0], lowest = entries[0];
+  for (const entry of entries) {
+    sum += entry[1].score;
+    if (entry[1].score > highest[1].score) highest = entry;
+    if (entry[1].score < lowest[1].score) lowest = entry;
+  }
+
+  return {
+    count: entries.length,
+    average: parseFloat((sum / entries.length).toFixed(2)),
+    highest: highest[0],
+    lowest: lowest[0],
+  };
+}
+
 module.exports = {
   getRatingsFile,
   loadRatings,
@@ -63,4 +87,5 @@ module.exports = {
   removeRating,
   listRatings,
   formatRating,
+  getRatingsSummary,
 };
